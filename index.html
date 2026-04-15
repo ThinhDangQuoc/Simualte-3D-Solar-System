@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Solar System Simulation | Graphics Project</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div id="ui-container">
+        <!-- Optional overlay UI can go here -->
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <!-- Info Panel -->
+    <div id="info-panel" class="hidden">
+        <div class="info-content">
+            <h2 id="planet-name">Planet Name</h2>
+            <p id="planet-type" class="type-tag">Terrestrial</p>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Distance from Sun</span>
+                    <span id="planet-distance" class="value">0 km</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Orbital Period</span>
+                    <span id="planet-period" class="value">0 days</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Diameter</span>
+                    <span id="planet-diameter" class="value">0 km</span>
+                </div>
+            </div>
+            <button id="close-panel">Close</button>
+        </div>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+</body>
+</html>

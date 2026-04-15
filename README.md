@@ -1,38 +1,52 @@
 # 3D Solar System Simulation
 
-A high-performance, interactive 3D Solar System simulation built with Three.js, designed for a Computer Graphics course.
+An interactive, high-fidelity 3D Solar System simulation built with **Three.js**, **Vite**, and **GSAP**. This project satisfies the requirements of a Computer Graphics course by demonstrating primitive shapes, hierarchical transformations, elliptical orbits (Keplerian mechanics), lighting, textures, and interactive camera controls.
 
-## Features
-- **Hierarchical Motion**: Planets revolve around the Sun and moons revolve around planets.
-- **Interactive UI**: Real-time control of rendering modes, lighting, shadows, and animation speeds using `lil-gui`.
-- **Core CG Primitives**: Includes Sphere (planets), Cube, Cone, and Cylinder with configurable properties.
-- **3D Model Loading**: Integrates external GLTF models.
-- **Lighting & Shadows**: Ambient, Point (Sun), and Directional lighting with soft shadow mapping.
-- **Affine Transformations**: Keyboard-based manipulation (W/A/S/D/Q/E/R/F) for objects in the scene.
+## 🚀 Features
 
-## Prerequisites
-- [Node.js](https://nodejs.org/) (v16+)
-- npm (v7+)
+- **Interactive Selection**: Click any planet to smoothly zoom in and view detailed information.
+- **Realistic Orbits**: Planets follow elliptical paths with real-world inclinations and variable orbital speeds (Kepler's Second Law).
+- **Premium UI**: Glassmorphic info panels and a functional `lil-gui` for real-time scene manipulation.
+- **Aesthetic Environment**: A subtle, elegant starfield and high-resolution celestial textures.
+- **Rendering Modes**: Switch between Solid, Wireframe, and Points modes.
 
-## How to Run Locally
+## 🛠 Prerequisites
 
-1.  **Extract/Clone** the project files to a local directory.
-2.  **Install Dependencies**:
-    ```bash
-    npm install
-    ```
-3.  **Start Dev Server**:
-    ```bash
-    npm run dev
-    ```
-4.  **Open in Browser**: Navigate to `http://localhost:5173` (or the port shown in your terminal).
+Ensure you have [Node.js](https://nodejs.org/) installed on your system.
 
-## Interaction Controls
-- **Mouse**: Orbit (Left Click), Zoom (Scroll), Pan (Right Click).
-- **Keyboard (on Cube)**:
-    - `W / S`: Move Forward/Backward (Z-axis).
-    - `A / D`: Move Left/Right (X-axis).
-    - `Q / E`: Rotate around Y-axis.
-    - `R / F`: Scale Up/Down.
-- **GUI (Top Right)**: Toggle Rendering Mode, Textures, Lighting, Shadows, and Speeds.
-# Simualte-3D-Solar-System
+## 🏃 Running the Project
+
+1. **Clone or Extract** the project directory.
+2. **Open a terminal** in the project folder.
+3. **Install all dependencies** (Vite, Three.js, GSAP, lil-gui):
+   ```bash
+   npm install
+   ```
+   *Note: If you are setting up a new project from scratch, you would install the core dependencies like this:*
+   ```bash
+   # Core 3D engine and utilities
+   npm install three gsap lil-gui
+
+   # Development tool (Vite)
+   npm install --save-dev vite
+   ```
+4. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+5. **Open your browser** to the URL provided in the terminal (usually `http://localhost:5173`).
+
+## 🎮 Controls
+
+- **Mouse Drag**: Rotate the camera.
+- **Mouse Wheel / Pinch**: Zoom in/out.
+- **Click on Planet**: Smoothly zoom to the planet and show info.
+- **'Close' Button**: Reset the camera to the global view.
+- **GUI (Top Right)**: Adjust camera planes, rendering modes, and animation speeds.
+
+## 📦 Tech Stack
+
+- **Three.js**: 3D Engine.
+- **Vite**: Rapid development environmental and build tool.
+- **GSAP**: Smooth camera animations.
+- **lil-gui**: Real-time control interface.
