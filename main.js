@@ -13,6 +13,10 @@ const CONFIG = {
     texturesEnabled: true,
     orbitsEnabled: true,
     flatLighting: false,
+    shadingModel: 'Standard (PBR)',
+    textureFilter: 'Linear (Smooth)',
+    showAxes: false,
+    showGrid: false,
     renderMode: 'Solid',
     near: 0.1,
     far: 3000,
@@ -102,6 +106,16 @@ sunLight.shadow.camera.near = 0.5;
 sunLight.shadow.camera.far = 500;
 sunLight.shadow.bias = -0.001;
 scene.add(sunLight);
+
+// Computer Graphics Coordinate Reference Helpers
+const axesHelper = new THREE.AxesHelper(150);
+axesHelper.visible = false;
+scene.add(axesHelper);
+
+const gridHelper = new THREE.GridHelper(400, 80, 0x00f0ff, 0x142035);
+gridHelper.position.y = -0.1;
+gridHelper.visible = false;
+scene.add(gridHelper);
 
 /**
  * Shaders: Custom Fresnel Glow Shader for Space Atmosphere & Sun Corona
@@ -705,11 +719,17 @@ const camFolder = gui.addFolder('Camera Telemetry');
 camFolder.add(CONFIG, 'near', 0.05, 5).onChange(v => camera.near = v).name('Near Range');
 camFolder.add(CONFIG, 'far', 500, 4000).onChange(v => camera.far = v).name('Far Range');
 
-const renderFolder = gui.addFolder('System Visuals');
+const renderFolder = gui.addFolder('Shading & Materials');
 renderFolder.add(CONFIG, 'renderMode', ['Solid', 'Wireframe']).onChange(updateRenderMode).name('Mesh Mode');
-renderFolder.add(CONFIG, 'lightsEnabled').onChange(updateLights).name('Glow Sources');
-renderFolder.add(CONFIG, 'orbitsEnabled').onChange(updateOrbits).name('Planet Orbits');
-renderFolder.add(CONFIG, 'flatLighting').onChange(updateFlatLighting).name('Flat Lighting');
+renderFolder.add(CONFIG, 'shadingModel', ['Standard (PBR)', 'Phong', 'Lambert', 'Normal (Pháp tuyến)', 'Basic (Unlit)']).onChange(updateShadingModel).name('Shading Model');
+renderFolder.add(CONFIG, 'textureFilter', ['Linear (Smooth)', 'Nearest (Pixelated)']).onChange(updateTextureFiltering).name('Texture Filter');
+
+const debugFolder = gui.addFolder('Space Diagnostics & Helpers');
+debugFolder.add(CONFIG, 'lightsEnabled').onChange(updateLights).name('Glow Sources');
+debugFolder.add(CONFIG, 'orbitsEnabled').onChange(updateOrbits).name('Planet Orbits');
+debugFolder.add(CONFIG, 'flatLighting').onChange(updateFlatLighting).name('Flat Lighting');
+debugFolder.add(CONFIG, 'showAxes').onChange(updateHelpers).name('Coordinate Axes');
+debugFolder.add(CONFIG, 'showGrid').onChange(updateHelpers).name('Ecliptic Grid');
 
 const animFolder = gui.addFolder('Time Multipliers');
 animFolder.add(CONFIG, 'rotationSpeed', 0, 5).name('Axial Rotate');
@@ -759,7 +779,7 @@ function updateFlatLighting() {
             const basicMat = new THREE.MeshBasicMaterial({
                 map: p.mesh.userData.originalMaterial.map,
                 color: p.mesh.userData.originalMaterial.color,
-                wireframe: p.mesh.userData.originalMaterial.wireframe
+                wireframe: CONFIG.renderMode === 'Wireframe'
             });
             
             p.mesh.material = basicMat;
@@ -776,6 +796,92 @@ function updateFlatLighting() {
         
         p.mesh.material.needsUpdate = true;
     });
+}
+
+function applyTextureFilter(texture) {
+    if (CONFIG.textureFilter === 'Nearest (Pixelated)') {
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+    } else {
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+    }
+    texture.needsUpdate = true;
+}
+
+function updateTextureFiltering() {
+    planets.forEach(p => {
+        if (!p.mesh) return;
+        
+        if (p.mesh.material && p.mesh.material.map) {
+            applyTextureFilter(p.mesh.material.map);
+        }
+        if (p.mesh.userData.originalMaterial && p.mesh.userData.originalMaterial.map) {
+            applyTextureFilter(p.mesh.userData.originalMaterial.map);
+        }
+    });
+}
+
+function updateShadingModel() {
+    planets.forEach(p => {
+        if (!p.mesh) return;
+        
+        // Save original material if not already saved
+        if (!p.mesh.userData.originalMaterial) {
+            p.mesh.userData.originalMaterial = p.mesh.material;
+        }
+        
+        const orig = p.mesh.userData.originalMaterial;
+        let newMat;
+        
+        switch (CONFIG.shadingModel) {
+            case 'Phong':
+                newMat = new THREE.MeshPhongMaterial({
+                    map: orig.map,
+                    color: orig.color,
+                    shininess: 80,
+                    specular: 0x444444,
+                    wireframe: CONFIG.renderMode === 'Wireframe'
+                });
+                break;
+            case 'Lambert':
+                newMat = new THREE.MeshLambertMaterial({
+                    map: orig.map,
+                    color: orig.color,
+                    wireframe: CONFIG.renderMode === 'Wireframe'
+                });
+                break;
+            case 'Normal (Pháp tuyến)':
+                newMat = new THREE.MeshNormalMaterial({
+                    wireframe: CONFIG.renderMode === 'Wireframe'
+                });
+                break;
+            case 'Basic (Unlit)':
+                newMat = new THREE.MeshBasicMaterial({
+                    map: orig.map,
+                    color: orig.color,
+                    wireframe: CONFIG.renderMode === 'Wireframe'
+                });
+                break;
+            case 'Standard (PBR)':
+            default:
+                newMat = orig;
+                newMat.wireframe = CONFIG.renderMode === 'Wireframe';
+                break;
+        }
+        
+        if (newMat.map) {
+            applyTextureFilter(newMat.map);
+        }
+        
+        p.mesh.material = newMat;
+        p.mesh.material.needsUpdate = true;
+    });
+}
+
+function updateHelpers() {
+    axesHelper.visible = CONFIG.showAxes;
+    gridHelper.visible = CONFIG.showGrid;
 }
 
 /**
