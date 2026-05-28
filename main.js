@@ -129,30 +129,42 @@ const FresnelGlowShader = {
     `
 };
 
+// Twinkling Starfield layer variables
+let starsGlow1 = null;
+let starsGlow2 = null;
+let starsGlow3 = null;
+
 /**
  * Environment: Multi-layered Space Stars & Colorful Nebula Dust
  */
 const createSpaceEnvironment = () => {
-    // 1. Classical Sparkle Starfield
-    const starGeometry = new THREE.BufferGeometry();
-    const starMaterial = new THREE.PointsMaterial({ 
-        color: 0xffffff, 
-        size: 0.6, 
-        transparent: true, 
-        opacity: 0.5,
-        depthWrite: false 
-    });
+    // 1. Classical Sparkle Starfield (split into 3 independent layers for dynamic glowing/twinkling animations)
+    const createStarLayer = (count, size, opacity) => {
+        const geom = new THREE.BufferGeometry();
+        const verts = [];
+        for (let i = 0; i < count; i++) {
+            const x = (Math.random() - 0.5) * 1800;
+            const y = (Math.random() - 0.5) * 1800;
+            const z = (Math.random() - 0.5) * 1800;
+            verts.push(x, y, z);
+        }
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+        const mat = new THREE.PointsMaterial({ 
+            color: 0xffffff, 
+            size: size, 
+            transparent: true, 
+            opacity: opacity,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        const points = new THREE.Points(geom, mat);
+        scene.add(points);
+        return points;
+    };
     
-    const starVertices = [];
-    for (let i = 0; i < 2500; i++) {
-        const x = (Math.random() - 0.5) * 1600;
-        const y = (Math.random() - 0.5) * 1600;
-        const z = (Math.random() - 0.5) * 1600;
-        starVertices.push(x, y, z);
-    }
-    starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-    const starPoints = new THREE.Points(starGeometry, starMaterial);
-    scene.add(starPoints);
+    starsGlow1 = createStarLayer(1000, 0.45, 0.4);
+    starsGlow2 = createStarLayer(900, 0.75, 0.35);
+    starsGlow3 = createStarLayer(700, 0.6, 0.5);
 
     // 2. Cosmic Nebula Particle Clouds (Cyan, Magenta & Amber layers)
     const nebulaColors = [0x00f0ff, 0xd946ef, 0xf59e0b];
@@ -188,10 +200,53 @@ const createSpaceEnvironment = () => {
         nebulaGroup.add(nebPoints);
     }
     scene.add(nebulaGroup);
-    return { starPoints, nebulaGroup };
+    return { nebulaGroup };
 };
 
 const env = createSpaceEnvironment();
+
+/**
+ * Create the Asteroid Belt between Mars and Jupiter
+ */
+const createAsteroidBelt = () => {
+    const count = 1200;
+    const geom = new THREE.BufferGeometry();
+    const positions = [];
+    
+    // Mars is at a = 44, Jupiter is at a = 62. Belt fits beautifully at radius 50-56
+    const minR = 50;
+    const maxR = 56;
+    
+    for (let i = 0; i < count; i++) {
+        const radius = minR + Math.random() * (maxR - minR);
+        const angle = Math.random() * Math.PI * 2;
+        
+        const x = radius * Math.cos(angle);
+        const z = radius * Math.sin(angle);
+        const y = (Math.random() - 0.5) * 1.5; // Thin flat disk along solar plane
+        
+        positions.push(x, y, z);
+    }
+    
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    
+    const mat = new THREE.PointsMaterial({
+        color: 0x9c8f80,
+        size: 0.28,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+    
+    const belt = new THREE.Points(geom, mat);
+    scene.add(belt);
+    return belt;
+};
+
+let asteroidBelt = createAsteroidBelt();
+
+
 
 /**
  * Solar System Objects Setup
@@ -677,6 +732,33 @@ function updateLights() {
 }
 
 /**
+ * Animate the twinkling starfield layers using a cyclic opacity glow modulation
+ */
+function updateStarfieldGlow(time) {
+    if (starsGlow1 && starsGlow2 && starsGlow3) {
+        // Modulate star layers independently at different frequencies for organic twinkling feel
+        starsGlow1.material.opacity = 0.32 + Math.sin(time * 3.2) * 0.18;
+        starsGlow2.material.opacity = 0.28 + Math.cos(time * 2.2 + 0.8) * 0.18;
+        starsGlow3.material.opacity = 0.35 + Math.sin(time * 4.6 + 1.8) * 0.15;
+    }
+}
+
+/**
+ * Animate the sun corona radiating glowing heat waves by pulsing physical scale and Fresnel shader values
+ */
+function updateSunGlowHeat(time) {
+    if (sunGlow) {
+        // Pulsate corona mesh scale to mimic thermal convective expansion/contraction
+        const thermalPulse = 1.0 + Math.sin(time * 2.0) * 0.035;
+        sunGlow.scale.set(thermalPulse, thermalPulse, thermalPulse);
+        
+        // Modulate Fresnel glow coefficient (c) and power (p) for solar energy fluctuations
+        sunGlowMaterial.uniforms.c.value = 0.14 + Math.sin(time * 1.2) * 0.04;
+        sunGlowMaterial.uniforms.p.value = 2.3 + Math.cos(time * 2.4) * 0.32;
+    }
+}
+
+/**
  * Space Simulation Main Engine Loop
  */
 let lastFrameTime = performance.now();
@@ -736,6 +818,18 @@ function animate() {
     // Slowly rotate background nebulae dust for space dynamic feel
     env.nebulaGroup.rotation.y += 0.00015;
     sun.rotation.y += 0.002;
+
+    // Slowly rotate Asteroid Belt
+    if (asteroidBelt) {
+        asteroidBelt.rotation.y += 0.00025 * CONFIG.revolutionSpeed;
+    }
+
+
+
+    // Twinkle starfield and pulse sun thermal glow wave cycles
+    const time = now / 1000;
+    updateStarfieldGlow(time);
+    updateSunGlowHeat(time);
 
     // Simulation Sol calendar progression
     updateSimCalendar(deltaSeconds);
