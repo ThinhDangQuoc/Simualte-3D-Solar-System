@@ -11,7 +11,8 @@ const CONFIG = {
     revolutionSpeed: 1.0,
     lightsEnabled: true,
     texturesEnabled: true,
-    shadowsEnabled: true,
+    orbitsEnabled: true,
+    flatLighting: false,
     renderMode: 'Solid',
     near: 0.1,
     far: 3000,
@@ -276,6 +277,7 @@ const sunGlow = new THREE.Mesh(new THREE.SphereGeometry(10.2, 64, 64), sunGlowMa
 sun.add(sunGlow);
 
 // Create Planets and orbital paths
+const orbitLines = [];
 const planets = [];
 PLANET_DATA.forEach(data => {
     // Semi-minor axis b = a * sqrt(1 - e^2)
@@ -291,6 +293,7 @@ PLANET_DATA.forEach(data => {
         opacity: 0.35 
     });
     const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
+    orbitLines.push(orbitLine);
     
     // Shift focus to Sun
     const c = data.a * data.e;
@@ -705,6 +708,8 @@ camFolder.add(CONFIG, 'far', 500, 4000).onChange(v => camera.far = v).name('Far 
 const renderFolder = gui.addFolder('System Visuals');
 renderFolder.add(CONFIG, 'renderMode', ['Solid', 'Wireframe']).onChange(updateRenderMode).name('Mesh Mode');
 renderFolder.add(CONFIG, 'lightsEnabled').onChange(updateLights).name('Glow Sources');
+renderFolder.add(CONFIG, 'orbitsEnabled').onChange(updateOrbits).name('Planet Orbits');
+renderFolder.add(CONFIG, 'flatLighting').onChange(updateFlatLighting).name('Flat Lighting');
 
 const animFolder = gui.addFolder('Time Multipliers');
 animFolder.add(CONFIG, 'rotationSpeed', 0, 5).name('Axial Rotate');
@@ -728,6 +733,48 @@ function updateLights() {
                 child.visible = CONFIG.lightsEnabled;
             }
         });
+    });
+}
+
+function updateOrbits() {
+    orbitLines.forEach(line => {
+        line.visible = CONFIG.orbitsEnabled;
+    });
+}
+
+function updateFlatLighting() {
+    // Disable shadow casting from Sun Light when Flat Lighting is active
+    sunLight.castShadow = !CONFIG.flatLighting;
+    
+    planets.forEach(p => {
+        if (!p.mesh) return;
+        
+        if (CONFIG.flatLighting) {
+            // Save original standard material if not already saved
+            if (!p.mesh.userData.originalMaterial) {
+                p.mesh.userData.originalMaterial = p.mesh.material;
+            }
+            
+            // Create a BasicMaterial (unlit) and transfer the texture map and color
+            const basicMat = new THREE.MeshBasicMaterial({
+                map: p.mesh.userData.originalMaterial.map,
+                color: p.mesh.userData.originalMaterial.color,
+                wireframe: p.mesh.userData.originalMaterial.wireframe
+            });
+            
+            p.mesh.material = basicMat;
+            p.mesh.castShadow = false;
+            p.mesh.receiveShadow = false;
+        } else {
+            // Restore original standard material
+            if (p.mesh.userData.originalMaterial) {
+                p.mesh.material = p.mesh.userData.originalMaterial;
+                p.mesh.castShadow = true;
+                p.mesh.receiveShadow = true;
+            }
+        }
+        
+        p.mesh.material.needsUpdate = true;
     });
 }
 
