@@ -1,106 +1,632 @@
+/* CSS Design System for Cinematic Space HUD */
+:root {
+    --primary-glow: #00f0ff;
+    --primary-bg: rgba(6, 12, 24, 0.45);
+    --secondary-bg: rgba(6, 12, 24, 0.75);
+    --accent-red: #ff3b30;
+    --accent-green: #34c759;
+    --border-color: rgba(0, 240, 255, 0.18);
+    --border-color-hover: rgba(0, 240, 255, 0.5);
+    --text-primary: #ffffff;
+    --text-secondary: #8af2ff;
+    --text-muted: #4e8b98;
+    --hud-font: 'Share Tech Mono', monospace;
+    --title-font: 'Orbitron', sans-serif;
+    --body-font: 'Inter', sans-serif;
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    user-select: none;
+    -webkit-user-drag: none;
 }
 
 html, body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: #000;
+    background: #00020a;
+    color: var(--text-primary);
+    font-family: var(--body-font);
 }
 
 #canvas {
     display: block;
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
 }
 
-/* Info Panel Styles */
+/* ==========================================================================
+   HUD Layout Overlay
+   ========================================================================== */
+#hud-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass through to canvas by default */
+    z-index: 5;
+    display: grid;
+    grid-template-rows: 60px 1fr 60px;
+    grid-template-columns: 280px 1fr 380px;
+    grid-template-areas:
+        "header header header"
+        "sidebar main ."
+        "footer footer footer";
+    padding: 15px;
+    gap: 15px;
+    box-shadow: inset 0 0 100px rgba(0, 240, 255, 0.05);
+}
+
+/* Enable pointer events for active HUD panels */
+#hud-header, #fleet-dock, #hud-footer, #info-panel, .lil-gui {
+    pointer-events: auto;
+}
+
+/* ==========================================================================
+   HUD Components Styling (Glassmorphism & Cyber Grid)
+   ========================================================================== */
+.glass-panel {
+    background: var(--primary-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+    position: relative;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4),
+                inset 0 0 15px rgba(0, 240, 255, 0.05);
+}
+
+.glass-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 1px solid transparent;
+    pointer-events: none;
+}
+
+/* Corner brackets decoration */
+.corner-decor::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-bottom: 2px solid var(--primary-glow);
+    border-right: 2px solid var(--primary-glow);
+    bottom: -1px;
+    right: -1px;
+}
+
+/* ==========================================================================
+   Header HUD
+   ========================================================================== */
+#hud-header {
+    grid-area: header;
+    background: linear-gradient(180deg, rgba(6, 12, 24, 0.8) 0%, rgba(6, 12, 24, 0.2) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 25px;
+    font-family: var(--hud-font);
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    letter-spacing: 2px;
+}
+
+.hud-title {
+    font-family: var(--title-font);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    letter-spacing: 3px;
+}
+
+.scanner-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-glow);
+    margin-right: 8px;
+    box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.glow-text {
+    color: var(--primary-glow);
+    text-shadow: 0 0 5px rgba(0, 240, 255, 0.6);
+}
+
+.blinking {
+    animation: pulse-glow 1.5s infinite alternate;
+}
+
+.highlight-text {
+    color: #ffd700;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.4);
+}
+
+/* ==========================================================================
+   Sidebar: Fleet Selection Dock
+   ========================================================================== */
+#fleet-dock {
+    grid-area: sidebar;
+    display: flex;
+    flex-direction: column;
+    background: var(--primary-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 8px 0 0 8px;
+    padding: 20px 15px;
+    gap: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.dock-header {
+    font-family: var(--title-font);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+    padding-bottom: 8px;
+    text-align: center;
+}
+
+.planet-list {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* Custom scrollbar for planet list */
+.planet-list::-webkit-scrollbar {
+    width: 3px;
+}
+.planet-list::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+}
+.planet-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+}
+
+.hud-btn {
+    background: rgba(0, 240, 255, 0.05);
+    border: 1px solid var(--border-color);
+    padding: 10px 15px;
+    color: var(--text-primary);
+    font-family: var(--hud-font);
+    text-align: left;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.hud-btn:hover {
+    background: rgba(0, 240, 255, 0.15);
+    border-color: var(--primary-glow);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    transform: translateX(4px);
+}
+
+.hud-btn.active {
+    background: rgba(0, 240, 255, 0.25);
+    border-color: var(--primary-glow);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+    font-weight: 700;
+}
+
+.hud-btn .planet-distance-small {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.hud-btn.active .planet-distance-small {
+    color: var(--text-secondary);
+}
+
+/* Autopilot Indicator and Button */
+#btn-autopilot {
+    margin-top: 10px;
+    justify-content: center;
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+#btn-autopilot.autopilot-active {
+    border-color: var(--accent-green);
+    background: rgba(52, 199, 89, 0.15);
+    box-shadow: 0 0 15px rgba(52, 199, 89, 0.25);
+}
+
+#btn-autopilot:hover {
+    transform: none;
+}
+
+#btn-autopilot.autopilot-active:hover {
+    border-color: var(--accent-green);
+    background: rgba(52, 199, 89, 0.25);
+}
+
+.status-off {
+    color: var(--accent-red);
+}
+
+.status-on {
+    color: var(--accent-green);
+    font-weight: 700;
+    text-shadow: 0 0 8px var(--accent-green);
+}
+
+.pulse-indicator {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    margin-right: 8px;
+}
+
+#btn-autopilot.autopilot-active .pulse-indicator {
+    background: var(--accent-green);
+    animation: blinking-dot 1s infinite alternate;
+}
+
+/* ==========================================================================
+   Bottom Timeline & Chronos Controls Dock
+   ========================================================================== */
+#hud-footer {
+    grid-area: footer;
+    background: linear-gradient(0deg, rgba(6, 12, 24, 0.8) 0%, rgba(6, 12, 24, 0.2) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 25px;
+    font-family: var(--hud-font);
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+}
+
+.hud-time-controls {
+    display: flex;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 30px;
+    padding: 2px;
+    overflow: hidden;
+}
+
+.time-btn {
+    background: transparent;
+    border: none;
+    padding: 8px 18px;
+    color: var(--text-muted);
+    font-family: var(--hud-font);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 20px;
+}
+
+.time-btn:hover {
+    color: var(--text-primary);
+}
+
+.time-btn.active {
+    background: var(--primary-glow);
+    color: #000;
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+}
+
+/* ==========================================================================
+   Holographic Planet Analyzer (Right Sidebar Mod)
+   ========================================================================== */
 #info-panel {
     position: fixed;
     top: 50%;
-    right: 40px;
+    right: 35px;
     transform: translateY(-50%);
-    width: 350px;
-    background: rgba(10, 10, 15, 0.75);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px;
-    padding: 32px;
+    width: 360px;
+    background: var(--secondary-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 25px;
     color: white;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6),
+                inset 0 0 20px rgba(0, 240, 255, 0.08);
     z-index: 100;
-    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-family: var(--body-font);
+    transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+                transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 #info-panel.hidden {
     opacity: 0;
-    transform: translateY(-50%) translateX(50px);
+    transform: translateY(-50%) translateX(60px);
     pointer-events: none;
 }
 
+/* Hologram Scanning Line Effect */
+.info-scanner-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+    box-shadow: 0 0 8px var(--primary-glow);
+    animation: scanner-loop 3.5s linear infinite;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.info-header {
+    border-bottom: 1px dashed rgba(0, 240, 255, 0.25);
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+}
+
 .info-content h2 {
-    margin: 0 0 8px 0;
-    font-size: 2.5rem;
+    font-family: var(--title-font);
+    font-size: 1.8rem;
     font-weight: 700;
-    letter-spacing: -0.5px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    margin-bottom: 5px;
 }
 
 .type-tag {
     display: inline-block;
-    padding: 4px 12px;
-    background: rgba(255, 255, 255, 0.1);
+    padding: 3px 10px;
+    background: rgba(0, 240, 255, 0.1);
+    border: 1px solid var(--border-color);
     border-radius: 100px;
-    font-size: 0.85rem;
-    margin-bottom: 24px;
-    color: #aaa;
+    font-size: 0.7rem;
+    font-family: var(--hud-font);
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
 }
 
+/* Holographic Spinner Area */
+.holo-scanner {
+    width: 100%;
+    height: 100px;
+    border: 1px solid rgba(0, 240, 255, 0.08);
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.radar-circle {
+    width: 60px;
+    height: 60px;
+    border: 1px dashed rgba(0, 240, 255, 0.3);
+    border-radius: 50%;
+    position: relative;
+    animation: rotation-clock 15s linear infinite;
+}
+
+.radar-circle::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    border-radius: 50%;
+}
+
+.radar-sweep {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    top: 50%;
+    left: 50%;
+    transform-origin: top left;
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, transparent 60%);
+    border-radius: 0 0 100% 0;
+    animation: rotation-clock 3s linear infinite;
+}
+
+.radar-label {
+    position: absolute;
+    bottom: 8px;
+    font-family: var(--hud-font);
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    animation: pulse-fast 1s infinite alternate;
+}
+
+/* Info Data Grid */
 .info-grid {
-    display: grid;
-    gap: 20px;
-    margin-bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.info-item {
+    background: rgba(0, 0, 0, 0.15);
+    border-left: 2px solid var(--primary-glow);
+    padding: 8px 12px;
 }
 
 .info-item .label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.68rem;
+    font-family: var(--hud-font);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #888;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
     margin-bottom: 4px;
 }
 
 .info-item .value {
-    font-size: 1.1rem;
-    font-weight: 500;
-}
-
-#close-panel {
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-    background-size: 200% auto;
-    border: none;
-    border-radius: 12px;
-    color: white;
+    font-size: 1.05rem;
     font-weight: 600;
-    cursor: pointer;
-    transition: 0.3s ease;
+    font-family: var(--hud-font);
+    color: var(--text-primary);
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.3);
 }
 
-#close-panel:hover {
-    background-position: right center;
-    transform: scale(1.02);
+.btn-disconnect {
+    width: 100%;
+    justify-content: center;
+    background: rgba(255, 59, 48, 0.05);
+    border-color: rgba(255, 59, 48, 0.2);
+    color: #ff8882;
+    font-weight: 600;
+    padding: 12px;
 }
 
-#close-panel:active {
-    transform: scale(0.98);
+.btn-disconnect:hover {
+    background: rgba(255, 59, 48, 0.2);
+    border-color: var(--accent-red);
+    box-shadow: 0 0 15px rgba(255, 59, 48, 0.25);
+    color: #fff;
+    transform: scale(1.01);
 }
 
-/* Custom GUI styles if needed */
-.lil-gui { 
-    --width: 300px;
+/* ==========================================================================
+   Lil-GUI Custom Styling to fit in
+   ========================================================================== */
+.lil-gui {
+    --background-color: var(--primary-bg);
+    --text-color: var(--text-primary);
+    --title-background-color: rgba(0, 240, 255, 0.08);
+    --widget-color: rgba(0, 240, 255, 0.05);
+    --hover-color: rgba(0, 240, 255, 0.15);
+    --focus-color: rgba(0, 240, 255, 0.3);
+    --number-color: var(--primary-glow);
+    --string-color: #ffd700;
+    font-family: var(--hud-font) !important;
+    font-size: 11px !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 6px !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    transition: opacity 0.3s ease;
+}
+
+.lil-gui.root {
+    position: fixed !important;
+    top: 75px !important;
+    right: 25px !important;
+    width: 260px !important;
+    z-index: 99 !important;
+}
+
+.lil-gui .title {
+    font-family: var(--title-font) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+}
+
+.lil-gui .controller {
+    border-left: 2px solid transparent;
+}
+
+.lil-gui .controller:hover {
+    border-left-color: var(--primary-glow);
+}
+
+/* Hide gui when info panel is fully active or minimize overlap */
+.lil-gui.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ==========================================================================
+   CSS Keyframe Animations
+   ========================================================================== */
+@keyframes pulse-glow {
+    0% {
+        opacity: 0.6;
+        text-shadow: 0 0 3px rgba(0, 240, 255, 0.3);
+    }
+    100% {
+        opacity: 1;
+        text-shadow: 0 0 10px rgba(0, 240, 255, 0.8), 0 0 18px rgba(0, 240, 255, 0.4);
+    }
+}
+
+@keyframes blinking-dot {
+    0% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+@keyframes pulse-fast {
+    0% { opacity: 0.4; }
+    100% { opacity: 0.95; }
+}
+
+@keyframes rotation-clock {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes scanner-loop {
+    0% { top: 0%; }
+    50% { top: 100%; }
+    100% { top: 0%; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    #hud-overlay {
+        grid-template-columns: 200px 1fr;
+        grid-template-areas:
+            "header header"
+            "sidebar main"
+            "footer footer";
+    }
+    #info-panel {
+        right: 15px;
+        width: 300px;
+    }
 }

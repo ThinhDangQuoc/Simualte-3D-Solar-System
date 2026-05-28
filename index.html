@@ -3,20 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Solar System Simulation | Graphics Project</title>
+    <title>3D Solar System Simulation | Cinematic Space HUD</title>
+    <!-- Google Fonts for ultimate sci-fi feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <div id="ui-container">
-        <!-- Optional overlay UI can go here -->
+    <!-- Cinematic HUD Grid Overlay -->
+    <div id="hud-overlay">
+        <!-- Top Telemetry Panel -->
+        <header id="hud-header">
+            <div class="hud-header-left">
+                <span class="scanner-indicator"></span>
+                SYS_STATUS: <span class="glow-text blinking">ACTIVE_SCANNER</span>
+            </div>
+            <div class="hud-title">ORBITAL SIMULATION MATRIX</div>
+            <div class="hud-header-right">
+                COORDS: <span id="cam-coords" class="highlight-text">[0.0, 150.0, 300.0]</span>
+            </div>
+        </header>
+
+        <!-- Sidebar Planetary Selection Dock -->
+        <aside id="fleet-dock">
+            <div class="dock-header">ORBITAL FLEET</div>
+            <div class="planet-list" id="hud-planet-list">
+                <!-- Planets list buttons populated dynamically by JS -->
+            </div>
+            
+            <!-- Autopilot Button -->
+            <button id="btn-autopilot" class="hud-btn">
+                <span class="pulse-indicator"></span>
+                AUTOPILOT: <span id="status-autopilot" class="status-off">OFF</span>
+            </button>
+        </aside>
+
+        <!-- Bottom Timeline & Chronos Controls Dock -->
+        <footer id="hud-footer">
+            <div class="hud-footer-left">
+                SIM_TIME: <span id="hud-date" class="highlight-text">YEAR 2026 - SOL 148</span>
+            </div>
+            <div class="hud-time-controls">
+                <button class="time-btn" data-speed="0">PAUSE</button>
+                <button class="time-btn active" data-speed="1">1X</button>
+                <button class="time-btn" data-speed="2">2X</button>
+                <button class="time-btn" data-speed="5">5X</button>
+                <button class="time-btn" data-speed="10">10X</button>
+            </div>
+            <div class="hud-footer-right">
+                FRAME_RATE: <span id="fps-counter" class="highlight-text">60 FPS</span>
+            </div>
+        </footer>
     </div>
+
     <canvas id="canvas"></canvas>
 
-    <!-- Info Panel -->
+    <!-- Holographic Planet Analyzer Panel -->
     <div id="info-panel" class="hidden">
+        <div class="info-scanner-line"></div>
         <div class="info-content">
-            <h2 id="planet-name">Planet Name</h2>
-            <p id="planet-type" class="type-tag">Terrestrial</p>
+            <div class="info-header">
+                <h2 id="planet-name">Planet Name</h2>
+                <p id="planet-type" class="type-tag">Terrestrial</p>
+            </div>
+            
+            <!-- Dynamic Telemetry Scanner View -->
+            <div class="holo-scanner">
+                <div class="radar-circle"></div>
+                <div class="radar-sweep"></div>
+                <span class="radar-label">SCANNING OBJECT...</span>
+            </div>
+
             <div class="info-grid">
                 <div class="info-item">
                     <span class="label">Distance from Sun</span>
@@ -31,7 +89,7 @@
                     <span id="planet-diameter" class="value">0 km</span>
                 </div>
             </div>
-            <button id="close-panel">Close</button>
+            <button id="close-panel" class="hud-btn btn-disconnect">DISCONNECT SCANNER</button>
         </div>
     </div>
 
