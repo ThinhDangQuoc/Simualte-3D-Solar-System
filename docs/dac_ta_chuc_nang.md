@@ -1278,3 +1278,4 @@ npm run preview
 Mô hình 3D Solar System Simulation là một ứng dụng mô phỏng Hệ Mặt Trời trực quan, có tương tác và có nhiều thành phần đồ họa máy tính quan trọng. Project không chỉ hiển thị các thiên thể trong không gian 3D mà còn tích hợp quỹ đạo elip, ánh sáng, texture, shader glow, camera animation, HUD, Autopilot và bảng điều khiển runtime.
 
 Với các chức năng hiện có, mô hình phù hợp để trình bày trong học phần Đồ họa máy tính, đặc biệt ở các nội dung về dựng hình 3D, phép biến đổi, camera, chiếu sáng, texture mapping và tương tác người dùng.
+

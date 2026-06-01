@@ -1007,8 +1007,14 @@ document.getElementById('btn-autopilot').addEventListener('click', (e) => {
 const gui = new GUI({ title: 'HUD Diagnostics' });
 
 const camFolder = gui.addFolder('Camera Telemetry');
-camFolder.add(CONFIG, 'near', 0.05, 5).onChange(v => camera.near = v).name('Near Range');
-camFolder.add(CONFIG, 'far', 500, 4000).onChange(v => camera.far = v).name('Far Range');
+camFolder.add(CONFIG, 'near', 0.05, 5).onChange(v => {
+    camera.near = v;
+    camera.updateProjectionMatrix();
+}).name('Near Range');
+camFolder.add(CONFIG, 'far', 500, 4000).onChange(v => {
+    camera.far = v;
+    camera.updateProjectionMatrix();
+}).name('Far Range');
 
 const renderFolder = gui.addFolder('Shading & Materials');
 renderFolder.add(CONFIG, 'renderMode', ['Solid', 'Wireframe']).onChange(updateRenderMode).name('Mesh Mode');
@@ -1022,8 +1028,6 @@ debugFolder.add(CONFIG, 'flatLighting').onChange(updateFlatLighting).name('Flat 
 debugFolder.add(CONFIG, 'showAxes').onChange(updateHelpers).name('Coordinate Axes');
 debugFolder.add(CONFIG, 'showGrid').onChange(updateHelpers).name('Ecliptic Grid');
 
-const animFolder = gui.addFolder('Time Multipliers');
-animFolder.add(CONFIG, 'rotationSpeed', 0, 5).name('Axial Rotate');
 
 function updateRenderMode() {
     scene.traverse(node => {
@@ -1230,7 +1234,7 @@ function animate() {
     planets.forEach(p => {
         if (p.isMoon) {
             p.orbitGroup.rotation.y += p.speed * CONFIG.revolutionSpeed;
-            p.mesh.rotation.y += 0.018 * CONFIG.rotationSpeed;
+            p.mesh.rotation.y += 0.018 * CONFIG.revolutionSpeed;
             return;
         }
 
@@ -1243,7 +1247,7 @@ function animate() {
         p.mesh.position.x = r * Math.cos(p.theta);
         p.mesh.position.z = r * Math.sin(p.theta);
 
-        p.mesh.rotation.y += 0.015 * CONFIG.revolutionSpeed; // CONFIG.rotationSpeed;
+        p.mesh.rotation.y += 0.015 * CONFIG.revolutionSpeed;
     });
 
     // Planet surface point-of-view camera follow. This keeps the camera anchored
