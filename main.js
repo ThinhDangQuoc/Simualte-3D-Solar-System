@@ -72,7 +72,11 @@ const PLANET_DATA = [
  */
 const scene = new THREE.Scene();
 const canvas = document.querySelector('#canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+const renderer = new THREE.WebGLRenderer({ 
+    canvas, 
+    antialias: true, 
+    alpha: false 
+});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -397,21 +401,37 @@ PLANET_DATA.forEach(data => {
 
     // Earth's Moon
     if (data.name === 'Earth') {
+        // cập nhật
         const moonOrbit = new THREE.Group();
         mesh.add(moonOrbit);
+
+        const moonTexture = textureLoader.load(BASE_TEXTURE_URL + 'moonmap1k.jpg');
+        moonTexture.colorSpace = THREE.SRGBColorSpace;
+
         const moonMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(0.28, 32, 32), 
-            new THREE.MeshStandardMaterial({ color: 0x8e9297, roughness: 0.9 })
+            new THREE.SphereGeometry(0.28, 32, 32),
+            new THREE.MeshStandardMaterial({
+                map: moonTexture,
+                color: 0x8e9297,
+                roughness: 0.9,
+                metalness: 0.0
+            })
         );
+
         moonMesh.position.x = 2.8;
+
+        moonMesh.castShadow = true;
+        moonMesh.receiveShadow = true;
+
         moonOrbit.add(moonMesh);
-        
-        planets.push({ 
-            mesh: moonMesh, 
-            isMoon: true, 
-            orbitGroup: moonOrbit, 
-            speed: 0.045 
+
+        planets.push({
+            mesh: moonMesh,
+            isMoon: true,
+            orbitGroup: moonOrbit,
+            speed: 0.045
         });
+        // ket thuc cap nhat
     }
 
     planets.push(planetObj);
@@ -1223,7 +1243,7 @@ function animate() {
         p.mesh.position.x = r * Math.cos(p.theta);
         p.mesh.position.z = r * Math.sin(p.theta);
 
-        p.mesh.rotation.y += 0.015 * CONFIG.rotationSpeed;
+        p.mesh.rotation.y += 0.015 * CONFIG.revolutionSpeed; // CONFIG.rotationSpeed;
     });
 
     // Planet surface point-of-view camera follow. This keeps the camera anchored
