@@ -98,7 +98,7 @@ const ambientLight = new THREE.AmbientLight(0x0c1220, 1.5);
 scene.add(ambientLight);
 
 // The glowing sun light
-const sunLight = new THREE.PointLight(0xffffff, 8000, 1500, 1.2);
+const sunLight = new THREE.PointLight(0xffffff, 1000, 1500, 1.2);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.width = 1024;
 sunLight.shadow.mapSize.height = 1024;
@@ -329,7 +329,21 @@ PLANET_DATA.forEach(data => {
     });
 
     textureLoader.load(data.texture, (texture) => {
-        material.map = texture;
+        // material.map = texture;
+        // material.needsUpdate = true;
+
+        texture.colorSpace = THREE.SRGBColorSpace;
+
+        material.userData.textureMap = texture;
+
+        if (CONFIG.texturesEnabled) {
+            material.map = texture;
+            material.color.set(0xffffff);
+        } else {
+            material.map = null;
+            material.color.set(data.color);
+        }
+
         material.needsUpdate = true;
     });
 
@@ -607,6 +621,23 @@ const mouse = new THREE.Vector2();
 
 const infoPanel = document.getElementById('info-panel');
 const closeBtn = document.getElementById('close-panel');
+const planetViewBtn = document.getElementById('btn-planet-view');
+let planetViewMode = false;
+let planetViewPlanet = null;
+const planetViewCameraOffset = new THREE.Vector3();
+const planetViewLookTarget = new THREE.Vector3();
+const planetViewBaseForward = new THREE.Vector3();
+const planetViewBaseRight = new THREE.Vector3();
+const planetViewBaseUp = new THREE.Vector3();
+const planetViewLookDirection = new THREE.Vector3();
+const planetViewYawQuat = new THREE.Quaternion();
+const planetViewPitchQuat = new THREE.Quaternion();
+let planetViewYaw = 0;
+let planetViewPitch = 0;
+let isPlanetViewDragging = false;
+let lastPlanetViewPointer = { x: 0, y: 0 };
+const PLANET_VIEW_MOUSE_SENSITIVITY = 0.0032;
+const PLANET_VIEW_MAX_PITCH = THREE.MathUtils.degToRad(84);
 
 function updateInfoPanel(data) {
     document.getElementById('planet-name').innerText = data.name.toUpperCase();
@@ -614,11 +645,233 @@ function updateInfoPanel(data) {
     document.getElementById('planet-distance').innerText = data.distance;
     document.getElementById('planet-period').innerText = data.period;
     document.getElementById('planet-diameter').innerText = data.diameter;
+    updatePlanetViewButton();
     
     infoPanel.classList.remove('hidden');
 }
 
+
+function updatePlanetViewButton() {
+    if (!planetViewBtn) return;
+
+    if (planetViewMode && planetViewPlanet) {
+        planetViewBtn.innerText = `EXIT ${planetViewPlanet.data.name.toUpperCase()} VIEW`;
+        planetViewBtn.classList.add('active');
+    } else {
+        planetViewBtn.innerText = selectedPlanet
+            ? `VIEW FROM ${selectedPlanet.data.name.toUpperCase()}`
+            : 'VIEW FROM PLANET';
+        planetViewBtn.classList.remove('active');
+    }
+}
+
+function getPlanetViewPose(planet) {
+    const planetPos = new THREE.Vector3();
+    planet.mesh.getWorldPosition(planetPos);
+
+    // Direction from the Solar System center to the planet.
+    // The camera sits just above the surface that faces the inner Solar System.
+    const fromSunToPlanet = planetPos.clone().normalize();
+    if (fromSunToPlanet.lengthSq() === 0) fromSunToPlanet.set(1, 0, 0);
+
+    const surfaceHeight = planet.data.size + Math.max(0.22, planet.data.size * 0.16);
+    const cameraHeight = Math.max(0.18, planet.data.size * 0.08);
+    const cameraPos = planetPos.clone()
+        .sub(fromSunToPlanet.multiplyScalar(surfaceHeight))
+        .add(new THREE.Vector3(0, cameraHeight, 0));
+
+    const lookTarget = new THREE.Vector3(0, Math.max(0.8, planet.data.size * 0.5), 0);
+
+    return { cameraPos, lookTarget };
+}
+
+function getPlanetViewBasis(planet, cameraPos, lookTarget) {
+    planetViewBaseForward.copy(lookTarget).sub(cameraPos).normalize();
+    if (planetViewBaseForward.lengthSq() === 0) planetViewBaseForward.set(0, 0, -1);
+
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    planetViewBaseRight.crossVectors(planetViewBaseForward, worldUp).normalize();
+    if (planetViewBaseRight.lengthSq() < 0.0001) planetViewBaseRight.set(1, 0, 0);
+
+    planetViewBaseUp.crossVectors(planetViewBaseRight, planetViewBaseForward).normalize();
+    return {
+        forward: planetViewBaseForward,
+        right: planetViewBaseRight,
+        up: planetViewBaseUp
+    };
+}
+
+function updatePlanetViewCamera({ immediate = false } = {}) {
+    if (!planetViewMode || !planetViewPlanet) return;
+
+    const { cameraPos, lookTarget } = getPlanetViewPose(planetViewPlanet);
+    planetViewCameraOffset.copy(cameraPos);
+    planetViewLookTarget.copy(lookTarget);
+
+    if (immediate) {
+        camera.position.copy(planetViewCameraOffset);
+    } else {
+        camera.position.lerp(planetViewCameraOffset, 0.28);
+    }
+
+    const { forward, right, up } = getPlanetViewBasis(planetViewPlanet, camera.position, planetViewLookTarget);
+    planetViewYawQuat.setFromAxisAngle(up, planetViewYaw);
+
+    planetViewLookDirection.copy(forward).applyQuaternion(planetViewYawQuat).normalize();
+    const yawedRight = right.clone().applyQuaternion(planetViewYawQuat).normalize();
+    planetViewPitchQuat.setFromAxisAngle(yawedRight, planetViewPitch);
+    planetViewLookDirection.applyQuaternion(planetViewPitchQuat).normalize();
+
+    camera.lookAt(camera.position.clone().add(planetViewLookDirection));
+}
+
+function setPlanetViewHostVisibility(planet, visible) {
+    if (!planet || !planet.mesh) return;
+
+    const materials = Array.isArray(planet.mesh.material) ? planet.mesh.material : [planet.mesh.material];
+    materials.forEach((mat) => {
+        if (!mat) return;
+        if (!mat.userData.planetViewOriginal) {
+            mat.userData.planetViewOriginal = {
+                transparent: mat.transparent,
+                opacity: mat.opacity,
+                depthWrite: mat.depthWrite,
+                colorWrite: mat.colorWrite,
+            };
+        }
+
+        const original = mat.userData.planetViewOriginal;
+        if (visible) {
+            mat.transparent = original.transparent;
+            mat.opacity = original.opacity;
+            mat.depthWrite = original.depthWrite;
+            mat.colorWrite = original.colorWrite;
+        } else {
+            // The viewer is still positioned on the surface, but the host sphere is
+            // made non-rendering so turning around does not show a giant blocking wall.
+            mat.transparent = true;
+            mat.opacity = 0;
+            mat.depthWrite = false;
+            mat.colorWrite = false;
+        }
+        mat.needsUpdate = true;
+    });
+
+    planet.mesh.children.forEach((child) => {
+        // Hide decorative atmosphere/ring meshes while keeping groups such as Earth's moon orbit visible.
+        if (child.isMesh) child.visible = visible;
+    });
+}
+
+function setupPlanetViewMouseLook() {
+    renderer.domElement.addEventListener('pointerdown', (event) => {
+        if (!planetViewMode) return;
+        if (event.target.closest('#hud-overlay') || event.target.closest('#info-panel') || event.target.closest('.lil-gui')) return;
+
+        isPlanetViewDragging = true;
+        lastPlanetViewPointer = { x: event.clientX, y: event.clientY };
+        renderer.domElement.setPointerCapture?.(event.pointerId);
+    });
+
+    renderer.domElement.addEventListener('pointermove', (event) => {
+        if (!planetViewMode || !isPlanetViewDragging) return;
+
+        const dx = event.clientX - lastPlanetViewPointer.x;
+        const dy = event.clientY - lastPlanetViewPointer.y;
+        lastPlanetViewPointer = { x: event.clientX, y: event.clientY };
+
+        planetViewYaw -= dx * PLANET_VIEW_MOUSE_SENSITIVITY;
+        planetViewPitch -= dy * PLANET_VIEW_MOUSE_SENSITIVITY;
+        planetViewPitch = THREE.MathUtils.clamp(
+            planetViewPitch,
+            -PLANET_VIEW_MAX_PITCH,
+            PLANET_VIEW_MAX_PITCH
+        );
+    });
+
+    const stopPlanetViewDrag = (event) => {
+        if (!isPlanetViewDragging) return;
+        isPlanetViewDragging = false;
+        renderer.domElement.releasePointerCapture?.(event.pointerId);
+    };
+
+    renderer.domElement.addEventListener('pointerup', stopPlanetViewDrag);
+    renderer.domElement.addEventListener('pointercancel', stopPlanetViewDrag);
+    renderer.domElement.addEventListener('pointerleave', () => {
+        isPlanetViewDragging = false;
+    });
+}
+
+setupPlanetViewMouseLook();
+
+function enterPlanetView() {
+    if (!selectedPlanet || selectedPlanet.isMoon) return;
+    if (autopilotActive) toggleAutopilotMode();
+
+    planetViewMode = true;
+    planetViewPlanet = selectedPlanet;
+    planetViewYaw = 0;
+    planetViewPitch = 0;
+    isPlanetViewDragging = false;
+
+    targetReticle.visible = false;
+    controls.enabled = false;
+    controls.enablePan = false;
+    controls.enableZoom = false;
+    setPlanetViewHostVisibility(planetViewPlanet, false);
+
+    const { cameraPos, lookTarget } = getPlanetViewPose(planetViewPlanet);
+    gsap.to(camera.position, {
+        x: cameraPos.x,
+        y: cameraPos.y,
+        z: cameraPos.z,
+        duration: 1.0,
+        ease: "power2.inOut",
+        onUpdate: () => updatePlanetViewCamera({ immediate: true }),
+        onComplete: () => updatePlanetViewCamera({ immediate: true })
+    });
+    gsap.to(controls.target, {
+        x: lookTarget.x,
+        y: lookTarget.y,
+        z: lookTarget.z,
+        duration: 1.0,
+        ease: "power2.inOut"
+    });
+
+    updatePlanetViewButton();
+}
+
+function exitPlanetView({ keepSelection = true } = {}) {
+    if (!planetViewMode) return;
+
+    const planetToReturn = planetViewPlanet;
+    setPlanetViewHostVisibility(planetToReturn, true);
+    planetViewMode = false;
+    planetViewPlanet = null;
+    isPlanetViewDragging = false;
+    controls.enabled = true;
+    controls.enablePan = true;
+    controls.enableZoom = true;
+    updatePlanetViewButton();
+
+    if (keepSelection && planetToReturn) {
+        selectPlanet(planetToReturn);
+    }
+}
+
+function togglePlanetView() {
+    if (planetViewMode) {
+        exitPlanetView({ keepSelection: true });
+    } else {
+        enterPlanetView();
+    }
+}
+
 function selectPlanet(planet) {
+    if (planetViewMode && planetViewPlanet !== planet) {
+        exitPlanetView({ keepSelection: false });
+    }
+
     selectedPlanet = planet;
     updateInfoPanel(planet.data);
     syncHUDSelection(planet.data.name);
@@ -651,6 +904,16 @@ function selectPlanet(planet) {
 }
 
 function resetView() {
+    const previousPlanetViewPlanet = planetViewPlanet;
+    setPlanetViewHostVisibility(previousPlanetViewPlanet, true);
+    planetViewMode = false;
+    planetViewPlanet = null;
+    isPlanetViewDragging = false;
+    controls.enabled = true;
+    controls.enablePan = true;
+    controls.enableZoom = true;
+    updatePlanetViewButton();
+
     selectedPlanet = null;
     infoPanel.classList.add('hidden');
     syncHUDSelection(null);
@@ -675,6 +938,9 @@ function resetView() {
 
 // Raycasting planet mesh click selectors
 window.addEventListener('click', (event) => {
+    // In surface-view mode, mouse drag is used for first-person looking, not picking planets.
+    if (planetViewMode) return;
+
     // Guard clicks on GUI or HUD panel overlays
     if (event.target.closest('#hud-overlay') || 
         event.target.closest('#info-panel') || 
@@ -703,6 +969,11 @@ window.addEventListener('click', (event) => {
 closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     resetView();
+});
+
+planetViewBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePlanetView();
 });
 
 document.getElementById('btn-autopilot').addEventListener('click', (e) => {
@@ -955,6 +1226,12 @@ function animate() {
         p.mesh.rotation.y += 0.015 * CONFIG.rotationSpeed;
     });
 
+    // Planet surface point-of-view camera follow. This keeps the camera anchored
+    // above the chosen planet while mouse movement controls the viewing angle.
+    if (planetViewMode && planetViewPlanet) {
+        updatePlanetViewCamera();
+    }
+
     // Reticle HUD follow lock target
     if (selectedPlanet && targetReticle.visible) {
         const targetPos = new THREE.Vector3();
@@ -993,7 +1270,7 @@ function animate() {
     // Top Right Camera Coords Telemetry Sync
     document.getElementById('cam-coords').innerText = `[${Math.round(camera.position.x)}, ${Math.round(camera.position.y)}, ${Math.round(camera.position.z)}]`;
 
-    controls.update();
+    if (!planetViewMode) controls.update();
     renderer.render(scene, camera);
 }
 
