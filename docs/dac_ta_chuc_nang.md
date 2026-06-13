@@ -41,6 +41,8 @@ Mô hình tập trung vào các chức năng sau:
 13. Điều chỉnh tham số camera, vật liệu, ánh sáng, lưới tọa độ và chế độ render bằng lil-gui.
 14. Cập nhật telemetry như tọa độ camera, ngày mô phỏng và FPS.
 15. Tự động thích ứng kích thước màn hình khi thay đổi cửa sổ trình duyệt.
+16. Thiết kế hành tinh tùy chỉnh thông qua HUD Constructor Panel (hỗ trợ Cloning Presets từ các hành tinh mẫu có sẵn).
+17. Đặt hành tinh tương tác bằng chuột thông qua Raycasting chiếu tia lên mặt phẳng hoàng đạo 3D.
 
 ---
 
@@ -876,13 +878,9 @@ Cho phép thay đổi tham số kỹ thuật của mô hình trong thời gian t
 | `Coordinate Axes` | Bật/tắt trục tọa độ. |
 | `Ecliptic Grid` | Bật/tắt lưới mặt phẳng quỹ đạo. |
 
-#### Time Multipliers
-
-| Tham số | Chức năng |
-|---|---|
-| `Axial Rotate` | Điều chỉnh tốc độ tự quay quanh trục của hành tinh. |
-
 ### Kết quả
+
+Người dùng có thể kiểm tra và điều chỉnh trực tiếp các yếu tố đồ họa của mô hình.
 
 Người dùng có thể kiểm tra và điều chỉnh trực tiếp các yếu tố đồ họa của mô hình.
 
@@ -1048,6 +1046,70 @@ Canvas 3D luôn phủ đúng kích thước màn hình, không bị méo hình.
 
 ---
 
+## 4.32. Chức năng thiết kế hành tinh tùy chỉnh (Planet Constructor)
+
+### Mục đích
+
+Cung cấp giao diện trực quan cho phép người dùng tùy ý thiết lập các thông số vật lý và bề ngoài của hành tinh mới.
+
+### Thành phần liên quan
+
+- HUD Panel `#constructor-panel`
+- Dropdown `#const-preset` (Cloning presets)
+- Các trường nhập liệu: tên hành tinh (`#const-name`), kích thước (`#const-size`), độ lệch tâm (`#const-ecc`), độ nghiêng (`#const-inc`), tốc độ quỹ đạo (`#const-speed`), bảng màu (`#const-color`), vân bề mặt (`#const-texture`), checkbox vành đai (`#const-rings`).
+
+### Mô tả hoạt động
+
+Khi bấm nút `CONSTRUCT PLANET`, bảng thiết kế sẽ hiện ra. Người dùng có hai cách để cấu hình hành tinh:
+
+1. **Thiết kế thủ công:** Trực tiếp điều chỉnh các thanh trượt và trường nhập liệu. Giá trị hiển thị bên cạnh các thanh trượt sẽ thay đổi tương ứng theo thời gian thực.
+2. **Nhân bản từ hành tinh mẫu (Cloning Preset):** Chọn một hành tinh có sẵn (ví dụ Trái Đất, Sao Hỏa, Sao Thổ) từ dropdown mẫu. Chương trình sẽ tự động lấy thông số vật lý gốc của hành tinh mẫu để điền (auto-populate) vào toàn bộ form thiết kế (bao gồm cả texture gốc và thiết lập vành đai). Tên hành tinh tự động chuyển thành dạng `[Tên mẫu] Twin`.
+
+### Kết quả
+
+Các thông số thiết kế được lưu lại trong đối tượng dữ liệu `constructorPlanetData` và sẵn sàng cho việc đưa vào hệ thống mô phỏng.
+
+---
+
+## 4.33. Chức năng đặt hành tinh tương tác bằng chuột (Placement Mode)
+
+### Mục đích
+
+Cho phép đặt chính xác hành tinh vừa tạo vào bất kỳ khoảng cách nào so với Mặt Trời bằng chuột.
+
+### Thành phần liên quan
+
+- Chế độ `placementMode` (Boolean)
+- Lớp phủ thông báo `#placement-prompt`
+- Raycasting mặt phẳng hoàng đạo `placementPlane`, `placementRaycaster`, `placementMouse`
+- Mô hình wireframe preview `placementPreviewMesh`
+- Đường quỹ đạo nét đứt preview `placementPreviewOrbit`
+
+### Mô tả hoạt động
+
+Khi bấm `LAUNCH PLANET`, hệ thống tạm thời khóa chức năng quay/zoom của camera (`controls.enabled = false`) và kích hoạt `placementMode`.
+
+Khi người dùng di chuột trên màn hình 3D:
+
+1. Hệ thống bắn một tia raycast từ vị trí camera qua tọa độ chuột, cắt qua mặt phẳng hoàng đạo $Y=0$.
+2. Khoảng cách từ điểm giao cắt đến Mặt Trời được dùng làm bán trục lớn $a$ của quỹ đạo mới (giới hạn từ `12` đến `150` đơn vị để đảm bảo an toàn).
+3. Vẽ lại đường quỹ đạo nét đứt preview và dịch vị trí elip theo độ lệch tâm $e$.
+4. Mesh preview dạng lưới thép (wireframe) hiển thị tại vị trí trỏ chuột trên elip để minh họa hành tinh sẽ xuất hiện tại đó.
+
+Khi người dùng click chuột trái:
+
+1. Chương trình thu thập thông tin và sinh ra hành tinh thật thông qua hàm `createPlanet`.
+2. Khoảng cách quỹ đạo 3D $a$ được ánh xạ sang **khoảng cách vật lý thiên văn thực tế** (triệu/tỷ km) bằng **thuật toán nội suy phi tuyến tính** (non-linear interpolation) dựa trên dữ liệu mẫu của 8 hành tinh trong Hệ Mặt Trời. Điều này khắc phục tình trạng méo thang đo khoảng cách của các hành tinh ngoài, đảm bảo thông số hiển thị của hành tinh mới luôn tương xứng và chính xác so với các hành tinh mẫu bay xung quanh. Kích thước mesh và tốc độ cũng được quy đổi tương ứng (đường kính km, chu kỳ ngày/năm Trái Đất) để cập nhật lên Info Panel.
+3. Thêm hành tinh mới vào mảng `planets` để tự động chạy chuyển động elip Kepler và tự xoay quanh trục đồng bộ với Chronos timeline.
+4. Cập nhật lại danh sách ở sidebar và tự động zoom camera quét lấy hành tinh mới đặt.
+5. Mở lại điều khiển camera và tắt chế độ đặt. Người dùng bấm phím `ESC` để hủy bỏ chế độ đặt bất kỳ lúc nào.
+
+### Kết quả
+
+Hành tinh custom được khai sinh tại đúng vị trí mong muốn, chuyển động vật lý quỹ đạo elip Kepler chuẩn xác và đồng bộ hoàn toàn với dòng thời gian mô phỏng.
+
+---
+
 ## 5. Đặc tả luồng tương tác chính
 
 ## 5.1. Luồng mở ứng dụng
@@ -1093,6 +1155,17 @@ Canvas 3D luôn phủ đúng kích thước màn hình, không bị méo hình.
 3. Hàm update tương ứng được gọi.
 4. Scene cập nhật ngay lập tức mà không cần tải lại trang.
 
+## 5.6. Luồng thiết kế và đặt hành tinh mới
+
+1. Người dùng bấm nút `CONSTRUCT PLANET` ở sidebar.
+2. Bảng `ORBITAL CONSTRUCTOR` mở ra.
+3. Người dùng cấu hình thủ công hoặc chọn clone preset hành tinh mẫu.
+4. Người dùng bấm `LAUNCH PLANET`. Bảng constructor ẩn đi, lớp phủ `#placement-prompt` chỉ dẫn hiện ra, camera bị khóa tương tác.
+5. Người dùng di chuột trên scene để xem preview elip quỹ đạo và wireframe hành tinh.
+6. Người dùng click chuột trái trên không gian để xác nhận đặt.
+7. Hành tinh mới xuất hiện, đồng bộ vào danh sách sidebar, camera zoom cận cảnh và hiển thị bảng thông tin chi tiết.
+8. (Hủy bỏ) Người dùng bấm phím `ESC` để thoát chế độ đặt, quay lại bảng constructor ban đầu.
+
 ---
 
 ## 6. Đặc tả giao diện người dùng
@@ -1109,10 +1182,12 @@ Hiển thị:
 
 Hiển thị danh sách hành tinh. Mỗi dòng gồm:
 
-- Tên hành tinh.
+- Tên hành tinh (bao gồm cả các hành tinh custom mới đặt).
 - Khoảng cách từ Mặt Trời.
 
-Có thêm nút bật/tắt Autopilot.
+Sidebar chứa hai nút chức năng chính:
+- Nút bật/tắt Autopilot.
+- Nút `CONSTRUCT PLANET` để kích hoạt bảng thiết kế hành tinh.
 
 ## 6.3. Footer Chronos Controls
 
@@ -1138,6 +1213,19 @@ Hiển thị khi chọn hành tinh. Nội dung gồm:
 ## 6.5. lil-gui Panel
 
 Bảng điều khiển kỹ thuật cho phép thay đổi thông số đồ họa và camera.
+
+## 6.6. Constructor Panel
+
+Bảng thiết kế kính ngắm dạng Glassmorphism viền cyan/accent xuất hiện phía bên trái màn hình cạnh sidebar:
+- Chứa trường nhập tên, select preset mẫu, các thanh trượt chỉnh size, eccentricity, inclination, speed.
+- Chọn màu và texture bề mặt cùng checkbox bật/tắt vành đai Sao Thổ.
+- Chứa hai nút hành động: LAUNCH PLANET và CANCEL.
+
+## 6.7. Placement Prompt
+
+Lớp phủ thông báo nổi ở trung tâm phía trên màn hình khi chế độ đặt chuột hoạt động:
+- Thiết kế viền nét đứt phát sáng màu vàng/cyan.
+- Hiển thị chữ nhấp nháy "ORBITAL PLACEMENT MODE ACTIVE" và dòng chữ nhỏ hướng dẫn cách rê chuột, click chuột đặt hoặc phím ESC hủy bỏ.
 
 ---
 
@@ -1241,7 +1329,8 @@ npm run preview
 | Chiếu sáng | Đáp ứng: ambient light, point light, shadow. |
 | Texture mapping | Đáp ứng: texture cho Mặt Trời và hành tinh. |
 | Animation | Đáp ứng: orbit, rotation, twinkle, glow, autopilot. |
-| Tương tác người dùng | Đáp ứng: click chọn, HUD, GUI, speed control. |
+| Tương tác người dùng | Đáp ứng: click chọn, HUD, GUI, speed control, rê chuột và click đặt hành tinh tương tác bằng Raycasting. |
+| Tạo vật thể động | Đáp ứng: Tạo mesh, elip orbit line, vành đai và inclination group động hoàn toàn theo thời gian thực dựa trên input của người dùng. |
 | Scene graph phân cấp | Đáp ứng: Trái Đất chứa Moon orbit, hành tinh nằm trong inclination group. |
 | Shader tùy chỉnh | Đáp ứng: Fresnel glow shader. |
 
@@ -1254,7 +1343,7 @@ npm run preview
 3. Mô phỏng quỹ đạo chỉ mang tính trực quan, không phải mô phỏng vật lý thiên văn chính xác hoàn toàn.
 4. Chỉ có Mặt Trăng của Trái Đất, chưa có vệ tinh của các hành tinh khác.
 5. Chưa có âm thanh, chú thích nâng cao hoặc chức năng tìm kiếm hành tinh.
-6. Dữ liệu hành tinh được khai báo tĩnh trong code, chưa đọc từ file JSON/API.
+6. Mô hình hỗ trợ thêm hành tinh động tại runtime, tuy nhiên chưa có cơ chế lưu trữ lâu dài (Local Storage/Database) nên hành tinh custom sẽ biến mất khi tải lại trang.
 
 ---
 

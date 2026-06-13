@@ -297,7 +297,9 @@ sun.add(sunGlow);
 // Create Planets and orbital paths
 const orbitLines = [];
 const planets = [];
-PLANET_DATA.forEach(data => {
+
+// Reusable function to build and register any planet (core or custom)
+const createPlanet = (data, initialTheta = null) => {
     // Semi-minor axis b = a * sqrt(1 - e^2)
     const b = data.a * Math.sqrt(1 - Math.pow(data.e, 2));
     
@@ -306,7 +308,7 @@ PLANET_DATA.forEach(data => {
     const points = curve.getPoints(360);
     const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
     const orbitMaterial = new THREE.LineBasicMaterial({ 
-        color: data.orbitColor, 
+        color: data.orbitColor || 0x00f0ff, 
         transparent: true, 
         opacity: 0.35 
     });
@@ -327,29 +329,26 @@ PLANET_DATA.forEach(data => {
     // Planet Mesh
     const geometry = new THREE.SphereGeometry(data.size, 64, 64);
     const material = new THREE.MeshStandardMaterial({ 
-        color: data.color, 
+        color: typeof data.color === 'string' ? parseInt(data.color.replace('#', '0x')) : data.color, 
         metalness: 0.15, 
         roughness: 0.7 
     });
 
-    textureLoader.load(data.texture, (texture) => {
-        // material.map = texture;
-        // material.needsUpdate = true;
-
-        texture.colorSpace = THREE.SRGBColorSpace;
-
-        material.userData.textureMap = texture;
-
-        if (CONFIG.texturesEnabled) {
-            material.map = texture;
-            material.color.set(0xffffff);
-        } else {
-            material.map = null;
-            material.color.set(data.color);
-        }
-
-        material.needsUpdate = true;
-    });
+    if (data.texture && data.texture !== 'color') {
+        const textureUrl = data.texture.startsWith('http') ? data.texture : (data.texture.endsWith('.jpg') ? data.texture : `${BASE_TEXTURE_URL}${data.texture}.jpg`);
+        textureLoader.load(textureUrl, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            material.userData.textureMap = texture;
+            if (CONFIG.texturesEnabled) {
+                material.map = texture;
+                material.color.set(0xffffff);
+            } else {
+                material.map = null;
+                material.color.set(typeof data.color === 'string' ? parseInt(data.color.replace('#', '0x')) : data.color);
+            }
+            material.needsUpdate = true;
+        });
+    }
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
@@ -362,7 +361,7 @@ PLANET_DATA.forEach(data => {
         a: data.a, 
         b: b, 
         inclinationGroup,
-        theta: Math.random() * Math.PI * 2,
+        theta: initialTheta !== null ? initialTheta : Math.random() * Math.PI * 2,
         speed: data.speed 
     };
 
@@ -386,10 +385,11 @@ PLANET_DATA.forEach(data => {
     }
 
     // Saturn Rings with elegant aesthetic texture map details
-    if (data.name === 'Saturn') {
+    if (data.name === 'Saturn' || data.hasRings) {
         const ringGeom = new THREE.RingGeometry(data.size + 0.8, data.size + 3.8, 128);
+        const ringColor = data.name === 'Saturn' ? 0xa8926c : (typeof data.color === 'string' ? parseInt(data.color.replace('#', '0x')) : data.color);
         const ringMat = new THREE.MeshBasicMaterial({ 
-            color: 0xa8926c, 
+            color: ringColor, 
             side: THREE.DoubleSide, 
             transparent: true, 
             opacity: 0.52 
@@ -401,7 +401,6 @@ PLANET_DATA.forEach(data => {
 
     // Earth's Moon
     if (data.name === 'Earth') {
-        // cập nhật
         const moonOrbit = new THREE.Group();
         mesh.add(moonOrbit);
 
@@ -419,10 +418,8 @@ PLANET_DATA.forEach(data => {
         );
 
         moonMesh.position.x = 2.8;
-
         moonMesh.castShadow = true;
         moonMesh.receiveShadow = true;
-
         moonOrbit.add(moonMesh);
 
         planets.push({
@@ -431,10 +428,15 @@ PLANET_DATA.forEach(data => {
             orbitGroup: moonOrbit,
             speed: 0.045
         });
-        // ket thuc cap nhat
     }
 
     planets.push(planetObj);
+    return planetObj;
+};
+
+// Initialize core planets from static data
+PLANET_DATA.forEach(data => {
+    createPlanet(data);
 });
 
 /**
@@ -964,6 +966,7 @@ window.addEventListener('click', (event) => {
     // Guard clicks on GUI or HUD panel overlays
     if (event.target.closest('#hud-overlay') || 
         event.target.closest('#info-panel') || 
+        event.target.closest('#constructor-panel') || 
         event.target.closest('.lil-gui')) return;
 
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -1304,6 +1307,378 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
+
+/**
+ * ==========================================================================
+ * Interactive Planet Constructor & Placement System
+ * ==========================================================================
+ */
+
+// State for custom planet genesis builder
+let constructorPlanetData = {
+    name: 'Planet Genesis',
+    size: 1.0,
+    e: 0.05,
+    i: 2.0,
+    speed: 0.010,
+    color: '#00f0ff',
+    texture: 'color',
+    rings: false
+};
+
+let placementMode = false;
+let placementPreviewMesh = null;
+let placementPreviewOrbit = null;
+let placementPreviewGroup = null;
+let placementCurrentA = 34; // default orbit radius preview
+let placementCurrentTheta = 0;
+
+// Intersection math plane (horizontal plane at Y = 0)
+const placementPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const placementRaycaster = new THREE.Raycaster();
+const placementMouse = new THREE.Vector2();
+
+// Helper to convert hex number to HTML color string
+const hexToHtmlColor = (colorNum) => {
+    return '#' + colorNum.toString(16).padStart(6, '0');
+};
+
+// Enter mouse placement mode
+const enterPlacementMode = () => {
+    // Hide panel constructor
+    document.getElementById('constructor-panel').classList.add('hidden');
+    
+    // Disable normal orbit controls
+    controls.enabled = false;
+    
+    // Show placement instruction prompt
+    document.getElementById('placement-prompt').classList.remove('hidden');
+    
+    placementMode = true;
+    
+    // Create new preview parent group for inclination angle (i)
+    placementPreviewGroup = new THREE.Group();
+    placementPreviewGroup.rotation.z = THREE.MathUtils.degToRad(constructorPlanetData.i);
+    scene.add(placementPreviewGroup);
+    
+    // Holographic preview mesh (wireframe)
+    const previewGeo = new THREE.SphereGeometry(constructorPlanetData.size, 32, 32);
+    const previewMat = new THREE.MeshBasicMaterial({ 
+        color: constructorPlanetData.color, 
+        wireframe: true, 
+        transparent: true, 
+        opacity: 0.7 
+    });
+    placementPreviewMesh = new THREE.Mesh(previewGeo, previewMat);
+    placementPreviewGroup.add(placementPreviewMesh);
+    
+    // Holographic preview orbit line (dashed)
+    const b = placementCurrentA * Math.sqrt(1 - Math.pow(constructorPlanetData.e, 2));
+    const curve = new THREE.EllipseCurve(0, 0, placementCurrentA, b, 0, 2 * Math.PI, false, 0);
+    const points = curve.getPoints(120);
+    const previewOrbitGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const previewOrbitMat = new THREE.LineDashedMaterial({ 
+        color: constructorPlanetData.color, 
+        dashSize: 1.5, 
+        gapSize: 1.5, 
+        transparent: true, 
+        opacity: 0.5 
+    });
+    placementPreviewOrbit = new THREE.Line(previewOrbitGeo, previewOrbitMat);
+    placementPreviewOrbit.computeLineDistances();
+    
+    const c = placementCurrentA * constructorPlanetData.e;
+    placementPreviewOrbit.position.set(-c, 0, 0);
+    placementPreviewOrbit.rotation.x = Math.PI / 2;
+    placementPreviewGroup.add(placementPreviewOrbit);
+};
+
+// Update holographic previews in real-time based on mouse coords
+const updatePlacementPreview = () => {
+    if (!placementMode) return;
+    
+    placementRaycaster.setFromCamera(placementMouse, camera);
+    const targetPoint = new THREE.Vector3();
+    placementRaycaster.ray.intersectPlane(placementPlane, targetPoint);
+    
+    // Distance from Sun is the semi-major axis (a). Clamp to safe orbits (12 - 150)
+    placementCurrentA = Math.max(12, Math.min(150, targetPoint.length()));
+    
+    // Recompute preview ellipse
+    const e = constructorPlanetData.e;
+    const b = placementCurrentA * Math.sqrt(1 - Math.pow(e, 2));
+    const curve = new THREE.EllipseCurve(0, 0, placementCurrentA, b, 0, 2 * Math.PI, false, 0);
+    const points = curve.getPoints(120);
+    
+    placementPreviewOrbit.geometry.setFromPoints(points);
+    placementPreviewOrbit.geometry.attributes.position.needsUpdate = true;
+    placementPreviewOrbit.computeLineDistances();
+    
+    const c = placementCurrentA * e;
+    placementPreviewOrbit.position.set(-c, 0, 0);
+    
+    // Position preview mesh on the orbit aligned with mouse vector angle
+    placementCurrentTheta = Math.atan2(targetPoint.z, targetPoint.x);
+    const r = (placementCurrentA * (1 - e * e)) / (1 + e * Math.cos(placementCurrentTheta));
+    
+    placementPreviewMesh.position.x = r * Math.cos(placementCurrentTheta);
+    placementPreviewMesh.position.z = r * Math.sin(placementCurrentTheta);
+    placementPreviewMesh.position.y = 0;
+};
+
+// Construct and spawn the actual planet in simulation scene
+const placePlanet = () => {
+    if (!placementMode) return;
+    
+    const size = constructorPlanetData.size;
+    const e = constructorPlanetData.e;
+    const i = constructorPlanetData.i;
+    const speed = constructorPlanetData.speed;
+    const color = constructorPlanetData.color;
+    
+    // Non-linear interpolation based on standard planet dataset for perfect match
+    const getAstrophysicalDistance = (a) => {
+        const refs = [
+            { a: 16, d: 57.9 },
+            { a: 24, d: 108.2 },
+            { a: 34, d: 149.6 },
+            { a: 44, d: 227.9 },
+            { a: 62, d: 778.6 },
+            { a: 82, d: 1433.0 },
+            { a: 102, d: 2871.0 },
+            { a: 120, d: 4495.0 }
+        ];
+        
+        if (a <= refs[0].a) {
+            const slope = (refs[1].d - refs[0].d) / (refs[1].a - refs[0].a);
+            const dist = refs[0].d + slope * (a - refs[0].a);
+            return Math.max(10, dist);
+        }
+        
+        if (a >= refs[refs.length - 1].a) {
+            const last = refs[refs.length - 1];
+            const prev = refs[refs.length - 2];
+            const slope = (last.d - prev.d) / (last.a - prev.a);
+            return last.d + slope * (a - last.a);
+        }
+        
+        for (let idx = 0; idx < refs.length - 1; idx++) {
+            if (a >= refs[idx].a && a <= refs[idx+1].a) {
+                const t = (a - refs[idx].a) / (refs[idx+1].a - refs[idx].a);
+                return refs[idx].d + t * (refs[idx+1].d - refs[idx].d);
+            }
+        }
+        return a * 4.4;
+    };
+    
+    const realDistance = getAstrophysicalDistance(placementCurrentA);
+    const distanceStr = realDistance >= 1000 ? 
+        (realDistance / 1000).toFixed(3) + 'B km' : 
+        realDistance.toFixed(1) + 'M km';
+        
+    const realDiameter = Math.round(size * 10600);
+    const diameterStr = realDiameter.toLocaleString() + ' km';
+    
+    const realPeriodDays = Math.round(365.25 * (0.012 / speed));
+    const periodStr = realPeriodDays >= 365 ? 
+        (realPeriodDays / 365.25).toFixed(2) + ' years' : 
+        realPeriodDays + ' days';
+
+    const customPlanetConfig = {
+        name: document.getElementById('const-name').value.trim() || 'Planet Genesis',
+        size: size,
+        a: placementCurrentA,
+        e: e,
+        i: i,
+        speed: speed,
+        color: color,
+        orbitColor: color,
+        texture: constructorPlanetData.texture,
+        hasRings: constructorPlanetData.rings,
+        type: 'Custom Planet',
+        distance: distanceStr,
+        diameter: diameterStr,
+        period: periodStr
+    };
+    
+    // Build and add the planet to Three.js scene
+    const newPlanet = createPlanet(customPlanetConfig, placementCurrentTheta);
+    
+    // Re-build fleet selection dock to include new planet
+    buildPlanetSelectionDock();
+    
+    // Auto-focus camera on the new planet for satisfying UX feedback!
+    if (autopilotActive) toggleAutopilotMode();
+    selectPlanet(newPlanet);
+    
+    // Exit placement mode
+    exitPlacementMode();
+};
+
+// Destroy preview objects and unlock camera
+const exitPlacementMode = () => {
+    if (placementPreviewGroup) {
+        placementPreviewGroup.remove(placementPreviewMesh);
+        placementPreviewGroup.remove(placementPreviewOrbit);
+        scene.remove(placementPreviewGroup);
+    }
+    
+    placementPreviewMesh = null;
+    placementPreviewOrbit = null;
+    placementPreviewGroup = null;
+    
+    document.getElementById('placement-prompt').classList.add('hidden');
+    controls.enabled = true;
+    placementMode = false;
+};
+
+// Event Listeners for UI interaction
+document.getElementById('btn-construct-panel').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = document.getElementById('constructor-panel');
+    panel.classList.toggle('hidden');
+    
+    // If opening constructor, make sure to hide info-panel to prevent clutter
+    if (!panel.classList.contains('hidden')) {
+        document.getElementById('info-panel').classList.add('hidden');
+        resetView();
+    }
+});
+
+document.getElementById('btn-const-cancel').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('constructor-panel').classList.add('hidden');
+});
+
+// Sync slider movements with UI text values
+const syncSliderVal = (sliderId, valId, suffix = '') => {
+    const slider = document.getElementById(sliderId);
+    const valElem = document.getElementById(valId);
+    
+    slider.addEventListener('input', () => {
+        valElem.innerText = Number(slider.value).toFixed(sliderId === 'const-speed' ? 3 : (sliderId === 'const-ecc' ? 2 : 1)) + suffix;
+        
+        // Convert Preset select back to custom since values have been modified
+        document.getElementById('const-preset').value = 'custom';
+        
+        // Update live data state
+        const prop = sliderId.replace('const-', '');
+        constructorPlanetData[prop === 'inc' ? 'i' : (prop === 'ecc' ? 'e' : prop)] = parseFloat(slider.value);
+    });
+};
+
+syncSliderVal('const-size', 'val-const-size');
+syncSliderVal('const-ecc', 'val-const-ecc');
+syncSliderVal('const-inc', 'val-const-inc', '°');
+syncSliderVal('const-speed', 'val-const-speed');
+
+// Handle Color picker and texture updates
+document.getElementById('const-color').addEventListener('change', (e) => {
+    constructorPlanetData.color = e.target.value;
+    document.getElementById('const-preset').value = 'custom';
+});
+
+document.getElementById('const-texture').addEventListener('change', (e) => {
+    constructorPlanetData.texture = e.target.value;
+    document.getElementById('const-preset').value = 'custom';
+});
+
+document.getElementById('const-rings').addEventListener('change', (e) => {
+    constructorPlanetData.rings = e.target.checked;
+    document.getElementById('const-preset').value = 'custom';
+});
+
+// Launch planet into placement mode
+document.getElementById('btn-const-launch').addEventListener('click', (e) => {
+    e.stopPropagation();
+    
+    // Collect settings
+    constructorPlanetData.name = document.getElementById('const-name').value.trim() || 'Planet Genesis';
+    constructorPlanetData.size = parseFloat(document.getElementById('const-size').value);
+    constructorPlanetData.e = parseFloat(document.getElementById('const-ecc').value);
+    constructorPlanetData.i = parseFloat(document.getElementById('const-inc').value);
+    constructorPlanetData.speed = parseFloat(document.getElementById('const-speed').value);
+    constructorPlanetData.color = document.getElementById('const-color').value;
+    constructorPlanetData.texture = document.getElementById('const-texture').value;
+    constructorPlanetData.rings = document.getElementById('const-rings').checked;
+    
+    enterPlacementMode();
+});
+
+// Handle preset template cloning
+document.getElementById('const-preset').addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val === 'custom') return;
+    
+    // Find static matching planet
+    const preset = PLANET_DATA.find(p => p.name === val);
+    if (!preset) return;
+    
+    // Auto-populate form elements
+    document.getElementById('const-name').value = preset.name + ' Twin';
+    
+    document.getElementById('const-size').value = preset.size;
+    document.getElementById('val-const-size').innerText = preset.size.toFixed(1);
+    
+    document.getElementById('const-ecc').value = preset.e;
+    document.getElementById('val-const-ecc').innerText = preset.e.toFixed(2);
+    
+    document.getElementById('const-inc').value = preset.i;
+    document.getElementById('val-const-inc').innerText = preset.i.toFixed(1) + '°';
+    
+    document.getElementById('const-speed').value = preset.speed;
+    document.getElementById('val-const-speed').innerText = preset.speed.toFixed(3);
+    
+    const presetHexColor = hexToHtmlColor(preset.color);
+    document.getElementById('const-color').value = presetHexColor;
+    
+    // Map texture filenames back to select values
+    const textureName = preset.texture.substring(preset.texture.lastIndexOf('/') + 1).replace('.jpg', '').replace('1k', '');
+    document.getElementById('const-texture').value = textureName;
+    
+    const isSaturn = preset.name === 'Saturn';
+    document.getElementById('const-rings').checked = isSaturn;
+    
+    // Update data state
+    constructorPlanetData = {
+        name: preset.name + ' Twin',
+        size: preset.size,
+        e: preset.e,
+        i: preset.i,
+        speed: preset.speed,
+        color: presetHexColor,
+        texture: textureName,
+        rings: isSaturn
+    };
+});
+
+// Listen for mousemove, click and ESC key press for interactive placement
+window.addEventListener('mousemove', (event) => {
+    if (!placementMode) return;
+    
+    placementMouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    placementMouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    
+    updatePlacementPreview();
+});
+
+window.addEventListener('click', (event) => {
+    if (!placementMode) return;
+    
+    // Guard click if clicking on the placement overlay alert panel
+    if (event.target.closest('#placement-prompt')) return;
+    
+    placePlanet();
+});
+
+// Cancel placement mode on ESC key press
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && placementMode) {
+        exitPlacementMode();
+        // Re-open constructor panel for convenience
+        document.getElementById('constructor-panel').classList.remove('hidden');
+    }
 });
 
 // Run Simulation

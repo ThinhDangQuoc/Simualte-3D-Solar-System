@@ -226,3 +226,17 @@ Cung cấp công cụ bật/tắt các lớp hỗ trợ tính toán tọa độ 
   3. Nhấn tiếp vào nút tốc độ **10X**.
 * **Hiện tượng xảy ra:** Ngày Sol và Year trên HUD nhảy số siêu nhanh, đồng thời hành tinh vừa chạy cực tốc trên đường elip, vừa **tự quay quanh trục Y của chính nó cực kỳ nhanh (xoay tít liên tục)**. Điều này chứng minh thuật toán đồng bộ hóa dòng thời gian hoạt động vô cùng chính xác!
 
+### 4. Hướng dẫn kiểm thử "Bảng thiết kế hành tinh (Planet Constructor) & Đặt hành tinh tương tác bằng chuột"
+* **Mục tiêu:** Kiểm chứng tính năng thiết kế tự do hành tinh, nhân bản cấu hình có sẵn (Presets), chiếu tia Raycasting lên mặt phẳng hoàng đạo nằm ngang 3D, và tự động đồng bộ hóa danh sách hạm đội ở sidebar.
+* **Các bước test:**
+  1. Click vào nút **CONSTRUCT PLANET** ở cuối danh sách sidebar **ORBITAL FLEET**.
+  2. Bảng **ORBITAL CONSTRUCTOR** hiện ra. 
+  3. Tại trường **CLONE TEMPLATE**, click chọn preset **Earth Template**.
+     * *Quan sát:* Toàn bộ các thanh trượt kích thước, độ lệch tâm, góc nghiêng, vận tốc quỹ đạo, và màu sắc, texture tự động điền các thông số vật lý chuẩn xác của Trái Đất. Tên tự động đổi thành **Earth Twin**.
+  4. Bạn có thể tự ý thay đổi: tăng **Size** lên `1.5`, chọn **Texture** thành `marsmap`, bật checkbox **ADD SATURN-LIKE RINGS** (Thêm vành đai).
+  5. Nhấn nút màu xanh lá **LAUNCH PLANET**.
+     * *Quan sát:* Bảng thiết kế ẩn đi, màn hình kích hoạt chế độ **ORBITAL PLACEMENT MODE ACTIVE**. Một đường elip nét đứt (dashed line) holographic sáng rực kèm mô hình lưới thép hành tinh (wireframe preview) chuyển động bám theo con trỏ chuột của bạn trên mặt phẳng hoàng đạo.
+  6. Rê chuột ra xa/lại gần Mặt Trời để tùy chỉnh bán kính quỹ đạo. Nhấn **Chuột trái** vào điểm mong muốn.
+     * *Quan sát:* Hành tinh mới được khai sinh! Mô hình wireframe biến mất, thay vào đó là hành tinh Mars Twin với kích thước lớn có vành đai bao quanh chuyển động trên quỹ đạo nghiêng elip thực thụ.
+     * *Quan sát phụ:* Danh sách sidebar ở bên trái tự động thêm nút **MARS TWIN** kèm khoảng cách thời gian thực. Camera tự động zoom sát và scan hành tinh này để kiểm chứng, Info Panel bên phải hiển thị đầy đủ thông số: loại hành tinh `Custom Planet`, khoảng cách, chu kỳ elip và đường kính thực được quy đổi theo tỷ lệ vật lý thiên văn.
+  7. Nhấn phím **ESC** bất kỳ lúc nào khi đang ở chế độ đặt để hủy bỏ quá trình (camera sẽ được trả lại quyền điều khiển quay/zoom).

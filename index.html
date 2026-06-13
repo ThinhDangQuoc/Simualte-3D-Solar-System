@@ -37,6 +37,12 @@
                 <span class="pulse-indicator"></span>
                 AUTOPILOT: <span id="status-autopilot" class="status-off">OFF</span>
             </button>
+            
+            <!-- Construct Planet Button -->
+            <button id="btn-construct-panel" class="hud-btn btn-construct">
+                <span class="construct-icon">⚙</span>
+                CONSTRUCT PLANET
+            </button>
         </aside>
 
         <!-- Bottom Timeline & Chronos Controls Dock -->
@@ -94,6 +100,117 @@
                 <button id="btn-planet-view" class="hud-btn btn-planet-view">VIEW FROM PLANET</button>
                 <button id="close-panel" class="hud-btn btn-disconnect">DISCONNECT SCANNER</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Holographic Planet Constructor Panel -->
+    <div id="constructor-panel" class="glass-panel hidden corner-decor">
+        <div class="info-scanner-line"></div>
+        <div class="constructor-header">
+            <h3>ORBITAL CONSTRUCTOR</h3>
+            <span class="sub-header">GENESIS PLANET MATRIX</span>
+        </div>
+        
+        <div class="constructor-content">
+            <!-- Preset Selector -->
+            <div class="control-group">
+                <label for="const-preset">CLONE TEMPLATE</label>
+                <select id="const-preset" class="hud-select">
+                    <option value="custom">-- Custom Genesis --</option>
+                    <option value="Mercury">Mercury Template</option>
+                    <option value="Venus">Venus Template</option>
+                    <option value="Earth">Earth Template</option>
+                    <option value="Mars">Mars Template</option>
+                    <option value="Jupiter">Jupiter Template</option>
+                    <option value="Saturn">Saturn Template</option>
+                    <option value="Uranus">Uranus Template</option>
+                    <option value="Neptune">Neptune Template</option>
+                </select>
+            </div>
+
+            <!-- Planet Name -->
+            <div class="control-group">
+                <label for="const-name">PLANET NAME</label>
+                <input type="text" id="const-name" class="hud-input" value="Planet Genesis" maxlength="15">
+            </div>
+
+            <!-- Size Slider -->
+            <div class="control-group">
+                <div class="slider-label-row">
+                    <label for="const-size">MESH RADIUS</label>
+                    <span id="val-const-size" class="slider-val">1.0</span>
+                </div>
+                <input type="range" id="const-size" min="0.3" max="4.0" step="0.1" value="1.0" class="hud-slider">
+            </div>
+
+            <!-- Eccentricity Slider -->
+            <div class="control-group">
+                <div class="slider-label-row">
+                    <label for="const-ecc">ECCENTRICITY (e)</label>
+                    <span id="val-const-ecc" class="slider-val">0.05</span>
+                </div>
+                <input type="range" id="const-ecc" min="0.0" max="0.5" step="0.01" value="0.05" class="hud-slider">
+            </div>
+
+            <!-- Inclination Slider -->
+            <div class="control-group">
+                <div class="slider-label-row">
+                    <label for="const-inc">INCLINATION (i)</label>
+                    <span id="val-const-inc" class="slider-val">2.0°</span>
+                </div>
+                <input type="range" id="const-inc" min="0.0" max="25.0" step="0.5" value="2.0" class="hud-slider">
+            </div>
+
+            <!-- Orbital Speed Slider -->
+            <div class="control-group">
+                <div class="slider-label-row">
+                    <label for="const-speed">ORBIT SPEED</label>
+                    <span id="val-const-speed" class="slider-val">0.010</span>
+                </div>
+                <input type="range" id="const-speed" min="0.002" max="0.05" step="0.001" value="0.010" class="hud-slider">
+            </div>
+
+            <!-- Appearance (Color Picker & Texture Select) -->
+            <div class="control-group row-layout">
+                <div class="col-half">
+                    <label for="const-color">CORE COLOR</label>
+                    <input type="color" id="const-color" class="hud-color-picker" value="#00f0ff">
+                </div>
+                <div class="col-half">
+                    <label for="const-texture">TEXTURE</label>
+                    <select id="const-texture" class="hud-select">
+                        <option value="color">Flat Color</option>
+                        <option value="mercurymap">Mercury map</option>
+                        <option value="venusmap">Venus map</option>
+                        <option value="earthmap">Earth map</option>
+                        <option value="marsmap">Mars map</option>
+                        <option value="jupitermap">Jupiter map</option>
+                        <option value="saturnmap">Saturn map</option>
+                        <option value="uranusmap">Uranus map</option>
+                        <option value="neptunemap">Neptune map</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Saturn Rings -->
+            <div class="control-group checkbox-layout">
+                <input type="checkbox" id="const-rings" class="hud-checkbox">
+                <label for="const-rings">ADD SATURN-LIKE RINGS</label>
+            </div>
+        </div>
+
+        <div class="constructor-actions">
+            <button id="btn-const-launch" class="hud-btn btn-launch">LAUNCH PLANET</button>
+            <button id="btn-const-cancel" class="hud-btn btn-cancel">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- Interactive Placement Prompt Overlay -->
+    <div id="placement-prompt" class="hidden">
+        <div class="prompt-glow-border">
+            <span class="prompt-icon">⚡</span>
+            <span class="prompt-text">ORBITAL PLACEMENT MODE ACTIVE</span>
+            <span class="prompt-subtext">Move mouse to preview orbit. Click left-mouse on plane to launch planet. Press ESC to cancel.</span>
         </div>
     </div>
 
